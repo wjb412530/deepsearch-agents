@@ -13,6 +13,7 @@ from ragflow_sdk import RAGFlow
 
 from app.api.monitor import monitor
 from app.ragflow.rag_config import _load_ragflow_env
+from app.utils.cache import cache_get, cache_set, generate_cache_key
 
 # 模块级复用 RAGFlow 客户端，避免每次工具调用都重新初始化 SDK 对象
 api_key, base_url = _load_ragflow_env()
@@ -25,20 +26,38 @@ def get_assistant_list() -> str:
     """
     查询 RAGFlow 中有哪些聊天助手，以及每个助手关联了哪些知识库
 
-    作用：让模型先了解“哪个助手能回答哪类内部文档问题”，再决定后续要向哪个助手提问。
+    作用：让模型先了解"哪个助手能回答哪类内部文档问题"，再决定后续要向哪个助手提问。
     调用 create_ask_delete 之前，应先调用本工具确认助手名称。
     :return: 有助手时返回助手名称、功能介绍、关联知识库；无助手或异常时返回中文提示
     """
+    # 生成缓存键（assistant_list 查询无参数，使用固定键）
+    cache_key = generate_cache_key("ragflow_assistant_list")
 
-    # 埋点：工具被调用后，前端可以展示当前正在查询 RAGFlow 助手列表
-    monitor.report_tool(tool_name="ragflow聊天助手列表查询工具：get_assistant_list")
+    # 尝试从缓存获取结果
+    cached_result = cache_get(cache_key)
+    if cached_result is not None:
+        # 缓存命中，上报工具调用（标记为缓存命中）
+        monitor.report_tool(
+            tool_name="ragflow聊天助手列表查询工具：get_assistant_list",
+            args={"cache_hit": True}
+        )
+        return cached_result
+
+    # 缓存未命中，上报工具调用
+    monitor.report_tool(
+        tool_name="ragflow聊天助手列表查询工具：get_assistant_list",
+        args={"cache_hit": False}
+    )
 
     try:
         # list_chats 查询的是 RAGFlow 的 Chat 层，不是 Dataset 层
         # Chat 负责对外问答，Dataset 只负责承载文档
         chat_list = ragflow_client.list_chats()
         if not chat_list:
-            return "没有任何可用助手"
+            result = "没有任何可用助手"
+            # 将结果存入缓存
+            cache_set(cache_key, result)
+            return result
 
         # 把每个助手的名称、描述和绑定知识库拼成模型容易阅读的路由信息
         count_chat_info = ""
@@ -47,9 +66,14 @@ def get_assistant_list() -> str:
             dataset_names = getattr(chat, "kb_names", []) or []
 
             count_chat_info += f"助手名称:{chat.name};功能介绍：{chat.description}; 关联的知识库：{'、'.join(dataset_names)} \n"
+
+        # 将结果存入缓存
+        cache_set(cache_key, count_chat_info)
         return count_chat_info
     except Exception as e:
-        return f"查询助手信息异常，无可用助手,异常信息:{str(e)}"
+        error_msg = f"查询助手信息异常，无可用助手,异常信息:{str(e)}"
+        # 异常结果不缓存，直接返回
+        return error_msg
 
 
 @tool
@@ -101,7 +125,7 @@ def create_ask_delete(chat_name, question) -> str:
                 continue
             answer = chunk_data.get("answer")
             if answer:
-                # 部分流式片段会返回“截至当前的完整答案”，部分会返回增量内容
+                # 部分流式片段会返回"截至当前的完整答案"，部分会返回增量内容
                 # 这里兼容两种情况，尽量避免重复拼接
                 if answer.startswith(result):
                     result = answer

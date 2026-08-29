@@ -4,6 +4,10 @@ FastAPI 接口层与项目闭环入口
 负责承接前端的任务提交、任务取消、文件上传/下载、输出文件列表查询和
 WebSocket 长连接。HTTP 接口只做轻量调度，真正的 DeepAgents 执行放到后台
 任务中；执行进度、工具调用和最终结果由 monitor 按 thread_id 推送给前端。
+
+安全增强（项目 2）：
+- 文件上传大小限制
+- 文件扩展名白名单验证
 """
 
 import asyncio
@@ -29,6 +33,10 @@ from pydantic import BaseModel
 
 from app.agent.main_agent import run_deep_agent
 from app.api.monitor import manager
+from app.utils.safety import get_security_config, validate_file_upload
+
+# 项目 4：会话持久化 - checkpoints 数据库路径
+db_path = "app/data/checkpoints.db"
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
@@ -152,16 +160,44 @@ async def upload_files(files: List[UploadFile] = File(...), thread_id: str = For
     2. 保存到 `updated/session_{thread_id}` 目录。
     3. 供 Agent 在后续任务中读取和分析。
 
+    安全增强：
+    - 文件大小限制（默认 20MB）
+    - 文件扩展名白名单验证
+    - 文件名安全检查
+
     Args:
         files (List[UploadFile]): 文件对象列表。
         thread_id (str): 关联的任务会话 ID。
     """
+    # 获取安全配置
+    security_config = get_security_config()
+    max_size_mb = security_config["max_upload_mb"]
+    allowed_extensions = security_config["allowed_extensions"]
+
     # 上传文件先按会话隔离保存，避免不同任务读取到彼此的附件
     target_dir = updated_dir / f"session_{thread_id}"
     target_dir.mkdir(parents=True, exist_ok=True)
 
     saved_files = []
     for file in files:
+        # 安全增强：计算文件大小（MB）
+        file.file.seek(0, 2)  # 移动到文件末尾
+        file_size_bytes = file.file.tell()
+        file.file.seek(0)  # 重置到文件开头
+        file_size_mb = file_size_bytes / (1024 * 1024)
+
+        # 安全增强：验证文件上传
+        is_valid, error_msg = validate_file_upload(
+            file.filename,
+            file_size_mb,
+            max_size_mb,
+            allowed_extensions
+        )
+
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=f"文件 '{file.filename}' 上传失败：{error_msg}")
+
+        # 文件验证通过，保存文件
         file_path = target_dir / file.filename
         # 直接复制文件流，避免大文件一次性读入内存
         with file_path.open("wb") as buffer:
@@ -255,6 +291,65 @@ async def list_files(path: str):
     files.sort(key=lambda x: x.get("mtime", 0), reverse=True)
     print(f"[DEBUG] 找到 {len(files)} 个文件")
     return {"files": files}
+
+
+@app.get("/api/sessions")
+async def list_sessions():
+    """
+    会话列表查询接口 (Session List)。
+
+    目标：
+    1. 查询所有历史会话（从 checkpoints 数据库）。
+    2. 返回会话元数据（thread_id、checkpoint 数量、最后更新时间）。
+    3. 供前端展示历史会话并支持断点恢复。
+
+    项目 4 - Atom 3: 会话持久化增强功能
+    """
+    from app.agent.main_agent import get_checkpointer
+    import sqlite3
+
+    try:
+        # 获取 checkpointer 实例
+        checkpointer = await get_checkpointer()
+
+        # 直接查询数据库（使用同步连接进行只读查询）
+        conn = sqlite3.connect(db_path)
+        cursor = conn.cursor()
+
+        # 查询所有唯一的 thread_id 及其统计信息
+        query = """
+        SELECT
+            thread_id,
+            COUNT(*) as checkpoint_count,
+            MAX(checkpoint_id) as last_checkpoint_id
+        FROM checkpoints
+        GROUP BY thread_id
+        ORDER BY MAX(checkpoint_id) DESC
+        """
+
+        cursor.execute(query)
+        rows = cursor.fetchall()
+
+        sessions = []
+        for row in rows:
+            thread_id, checkpoint_count, last_checkpoint_id = row
+            sessions.append({
+                "thread_id": thread_id,
+                "checkpoint_count": checkpoint_count,
+                "last_checkpoint_id": last_checkpoint_id,
+            })
+
+        conn.close()
+
+        return {
+            "status": "success",
+            "total": len(sessions),
+            "sessions": sessions
+        }
+
+    except Exception as e:
+        print(f"[ERROR] 查询会话列表失败: {e}")
+        return {"error": f"查询失败: {str(e)}"}
 
 
 @app.websocket("/ws/{thread_id}")

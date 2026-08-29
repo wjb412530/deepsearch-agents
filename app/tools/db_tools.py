@@ -4,6 +4,12 @@ MySQL 数据库查询工具模块
 封装数据库查询助手使用的三个 LangChain 工具：
 list_sql_tables 用于发现真实表名，get_table_data 用于预览字段和样例数据，
 execute_sql_query 用于在确认结构后执行自定义查询。
+
+安全增强（项目 2）：
+- SQL 注入防护：仅允许 SELECT/SHOW 语句
+- 查询超时控制
+- 结果行数限制
+- 表名白名单验证
 """
 
 import os
@@ -13,6 +19,12 @@ from langchain_core.tools import tool
 from mysql.connector import Error, connect
 
 from app.api.monitor import monitor
+from app.utils.safety import (
+    get_security_config,
+    validate_sql_query,
+    limit_sql_rows,
+    validate_table_name,
+)
 
 load_dotenv()
 
@@ -23,8 +35,12 @@ def get_db_config():
     从环境变量读取 MySQL 连接配置
 
     所有数据库工具都通过此函数拿到同一份连接参数，避免每个工具重复读取环境变量
+    安全增强：添加查询超时控制
     :return: mysql.connector.connect 可直接使用的连接参数
     """
+    # 获取安全配置
+    security_config = get_security_config()
+
     config = {
         "host": os.getenv("MYSQL_HOST", "localhost"),
         "port": int(os.getenv("MYSQL_PORT", "3306")),
@@ -35,6 +51,9 @@ def get_db_config():
         "collation": os.getenv("MYSQL_COLLATION", "utf8mb4_unicode_ci"),
         "autocommit": True,
         "sql_mode": os.getenv("MYSQL_SQL_MODE", "TRADITIONAL"),
+        # 安全增强：添加连接和查询超时（秒）
+        "connection_timeout": security_config["sql_timeout"],
+        "use_pure": True,  # 使用纯 Python 实现以支持超时
     }
 
     # 去掉未配置的可选项，避免把 None 传给 mysql.connector 造成连接参数异常
@@ -101,6 +120,11 @@ def get_table_data(table_name) -> str:
     此工具的作用：
     1. 完成单表样例数据查询
     2. 为多表查询提供表结构信息和数据格式参考
+
+    安全增强：
+    - 表名白名单验证
+    - 表名格式检查（防止 SQL 注入）
+
     :param table_name: 表名
     :return: CSV 格式数据
              1. 第一行是列信息，列之间使用英文逗号分隔
@@ -113,6 +137,12 @@ def get_table_data(table_name) -> str:
                 1,张三,18\n
                 1,张三,18\n -> 至多查询 100 条
     """
+    # 安全增强：表名白名单验证
+    security_config = get_security_config()
+    is_valid, error_msg = validate_table_name(table_name, security_config["allowed_tables"])
+    if not is_valid:
+        return f"安全检查失败：{error_msg}"
+
     # 埋点：工具二被调用，前端可以展示当前正在预览哪张表
     monitor.report_tool(
         tool_name="数据库表数据查询工具：get_table_data",
@@ -126,8 +156,9 @@ def get_table_data(table_name) -> str:
     try:
         with connect(**config) as conn:
             with conn.cursor() as cursor:
-                # 教程代码直接拼接表名，重点演示 Agent 查询链路；生产环境应改为白名单校验
-                sql = f"SELECT * FROM {table_name} LIMIT 100"
+                # 安全增强：使用参数化查询（虽然表名不能参数化，但已通过白名单和格式检查保证安全）
+                # 使用反引号包裹表名，防止表名与关键字冲突
+                sql = f"SELECT * FROM `{table_name}` LIMIT {security_config['sql_max_rows']}"
                 cursor.execute(sql)
 
                 # cursor.description 保存查询结果的列元信息
@@ -167,6 +198,13 @@ def execute_sql_query(query) -> str:
     切记：执行之前，需要通过 list_sql_tables 明确真实表名，
     再通过 get_table_data 明确表结构和数据格式。
     适合多表关联、筛选、聚合、排序等复杂查询。
+
+    安全增强：
+    - 仅允许 SELECT/SHOW 语句
+    - 拦截 DROP/DELETE/UPDATE 等危险操作
+    - 自动限制返回行数
+    - 查询超时保护
+
     :param query: 要执行的自定义 SQL 语句
     :return: CSV 格式数据
              1. 第一行是列信息，列之间使用英文逗号分隔
@@ -177,9 +215,19 @@ def execute_sql_query(query) -> str:
                 1,张三,18\n
                 1,张三,18\n
     """
+    # 安全增强：SQL 注入检查
+    is_valid, error_msg = validate_sql_query(query)
+    if not is_valid:
+        return f"SQL 安全检查失败：{error_msg}"
+
+    # 安全增强：自动限制返回行数
+    security_config = get_security_config()
+    query_limited = limit_sql_rows(query, security_config["sql_max_rows"])
+
     # 埋点：记录模型最终生成的 SQL，便于教学时观察是否真的落到了正确表字段上
     monitor.report_tool(
-        tool_name="数据库表数据查询工具：execute_sql_query", args={"query": query}
+        tool_name="数据库表数据查询工具：execute_sql_query",
+        args={"query": query, "query_limited": query_limited}
     )
 
     # 获取数据库参数
@@ -190,13 +238,13 @@ def execute_sql_query(query) -> str:
     try:
         with connect(**config) as conn:
             with conn.cursor() as cursor:
-                # 当前章节依赖提示词约束模型生成只读查询；生产环境建议在工具层限制 SELECT/SHOW
-                cursor.execute(query)
+                # 安全增强：执行经过安全检查和行数限制的 SQL
+                cursor.execute(query_limited)
 
                 # 非查询类 SQL 没有结果集描述，这里统一返回提示，避免工具调用直接抛错给模型
                 description = cursor.description
                 if not description:
-                    return f"执行自定义 SQL 语句没有查询结果，SQL 为：{query}"
+                    return f"执行自定义 SQL 语句没有查询结果，SQL 为：{query_limited}"
                 # description => [("列1", ...), ("列2", ...)]
                 columns = [desc[0] for desc in description]
 

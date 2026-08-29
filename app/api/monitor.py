@@ -3,11 +3,16 @@ Agent 执行过程监控模块
 
 负责把工具调用、子智能体调用、任务结果和会话目录等事件统一包装后推送给前端
 在 Web 服务中优先通过 WebSocket 定向推送；在脚本调试场景中保留控制台输出
+
+可观测性增强（项目 3）：
+- 支持工具和子智能体执行耗时记录
+- 提供 start/end 两阶段事件上报
 """
 
 import asyncio
 import builtins
 import datetime
+import time
 from typing import Any, Optional
 
 from fastapi import WebSocket
@@ -111,6 +116,26 @@ class ToolMonitor:
             {"tool_name": tool_name, "args": args},
         )
 
+    def report_tool_end(
+        self,
+        tool_name: str,
+        start_time: float,
+        result: Optional[Any] = None,
+    ) -> None:
+        """
+        报告工具执行完成（项目 3 新增）
+
+        :param tool_name: 工具名称
+        :param start_time: 工具开始执行的时间戳（time.time()）
+        :param result: 工具执行结果摘要（可选）
+        """
+        duration_ms = int((time.time() - start_time) * 1000)
+        self._emit(
+            "tool_end",
+            f"工具执行完成: {tool_name} (耗时 {duration_ms}ms)",
+            {"tool_name": tool_name, "duration_ms": duration_ms, "result": result},
+        )
+
     def report_assistant(
         self,
         assistant_name: str,
@@ -121,6 +146,24 @@ class ToolMonitor:
             "assistant_call",
             f"正在调用助手: {assistant_name}",
             {"assistant_name": assistant_name, "args": args},
+        )
+
+    def report_assistant_end(
+        self,
+        assistant_name: str,
+        start_time: float,
+    ) -> None:
+        """
+        报告子智能体调用完成（项目 3 新增）
+
+        :param assistant_name: 子智能体名称
+        :param start_time: 调用开始的时间戳（time.time()）
+        """
+        duration_ms = int((time.time() - start_time) * 1000)
+        self._emit(
+            "assistant_end",
+            f"助手调用完成: {assistant_name} (耗时 {duration_ms}ms)",
+            {"assistant_name": assistant_name, "duration_ms": duration_ms},
         )
 
     def report_task_result(self, result: str) -> None:

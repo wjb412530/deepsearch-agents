@@ -1,0 +1,27 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(uv:*)",
+      "Bash(pnpm:*)",
+      "Bash(docker:*)",
+      "Bash(curl -s http://localhost:8000/docs)",
+      "Bash(sqlite3:*)",
+      "mcp__codex__codex",
+      "Bash(exist:*)",
+      "Bash([ -f app/data/checkpoints.db ])",
+      "Bash(curl:*)",
+      "Bash(ls -lh app/data/checkpoints.db*)",
+      "Bash(ping -n 6 127.0.0.1)",
+      "Bash(netstat -ano)",
+      "Bash(findstr :8000)",
+      "Bash(taskkill:*)",
+      "Bash(python:*)",
+      "Bash(timeout 3)",
+      "Bash(set OPENBLAS_NUM_THREADS=1)",
+      "Bash(tasklist)",
+      "Bash(findstr python:*)",
+      "Bash(findstr :8001)",
+      "Bash(git add:*)"
+    ]
+  }
+}

@@ -13,6 +13,7 @@ from langchain_core.tools import tool
 from tavily import TavilyClient
 
 from app.api.monitor import monitor
+from app.utils.cache import cache_get, cache_set, generate_cache_key
 
 load_dotenv()
 
@@ -39,8 +40,32 @@ def internet_search(
     :param include_raw_content: 是否返回网页原文内容；False 返回摘要，True 尝试返回更完整正文
     :return: Tavily 返回的结构化搜索结果
     """
-    # 工具内部埋点比外层 stream 解析更直接：只要工具被调用，前端就能看到本次搜索参数
-    # 这里只上报查询参数，不上报搜索结果正文，避免监控事件体过大
+    # 生成缓存键（基于所有查询参数）
+    cache_key = generate_cache_key(
+        "tavily_search",
+        query,
+        topic,
+        max_results,
+        include_raw_content
+    )
+
+    # 尝试从缓存获取结果
+    cached_result = cache_get(cache_key)
+    if cached_result is not None:
+        # 缓存命中，上报工具调用（标记为缓存命中）
+        monitor.report_tool(
+            tool_name="网络搜索工具",
+            args={
+                "query": query,
+                "topic": topic,
+                "max_results": max_results,
+                "include_raw_content": include_raw_content,
+                "cache_hit": True,
+            },
+        )
+        return cached_result
+
+    # 缓存未命中，上报工具调用
     monitor.report_tool(
         tool_name="网络搜索工具",
         args={
@@ -48,16 +73,22 @@ def internet_search(
             "topic": topic,
             "max_results": max_results,
             "include_raw_content": include_raw_content,
+            "cache_hit": False,
         },
     )
 
-    # Tavily 返回 query、results、title、url、content 等结构化字段，后续由子智能体阅读并汇总
-    return tavily_client.search(
+    # 调用 Tavily API 获取搜索结果
+    result = tavily_client.search(
         query=query,
         topic=topic,
         max_results=max_results,
         include_raw_content=include_raw_content,
     )
+
+    # 将结果存入缓存（异步操作，失败不影响返回）
+    cache_set(cache_key, result)
+
+    return result
 
 
 if __name__ == "__main__":

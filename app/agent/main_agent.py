@@ -4,6 +4,10 @@
 负责把模型、主提示词、文件类工具和三个专家子智能体组装成 DeepAgent，
 并提供 run_deep_agent 作为后续 API 层调用的统一入口。运行时还会为每个
 session_id 创建独立工作目录，并把工具调用、子智能体调用和最终结果推送给前端。
+
+会话持久化增强（项目 4）：
+- 使用 SqliteSaver 替代 InMemorySaver，实现会话状态持久化
+- 服务重启后会话状态保留，支持断点恢复
 """
 
 import asyncio
@@ -11,7 +15,7 @@ import shutil
 from pathlib import Path
 
 from deepagents import create_deep_agent
-from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.sqlite.aio import AsyncSqliteSaver
 
 from app.agent.llm import model
 from app.agent.prompts import main_agent_content
@@ -34,13 +38,47 @@ from app.tools.upload_file_read_tool import read_file_content
 # 1. tools 只放最终交付相关的文件工具
 # 2. subagents 放网络、数据库、RAGFlow 三类信息获取助手
 # 3. checkpointer 通过 thread_id 保存同一会话中的执行上下文
-main_agent = create_deep_agent(
-    model=model,
-    system_prompt=main_agent_content["system_prompt"],
-    tools=[generate_markdown, convert_md_to_pdf, read_file_content],
-    checkpointer=InMemorySaver(),
-    subagents=[database_query_agent, network_search_agent, knowledge_base_agent],
-)
+#    项目 4 改进：使用 AsyncSqliteSaver 实现持久化存储，支持断点恢复
+#    关键：AsyncSqliteSaver 必须使用 aiosqlite 异步连接，不能用同步 sqlite3.Connection
+import aiosqlite
+
+db_path = "app/data/checkpoints.db"
+
+# 全局 checkpointer，延迟初始化
+_checkpointer_instance = None
+
+
+async def get_checkpointer():
+    """获取或创建 AsyncSqliteSaver 实例（单例模式）"""
+    global _checkpointer_instance
+    if _checkpointer_instance is None:
+        # 创建异步连接
+        conn = await aiosqlite.connect(db_path)
+        # 启用 WAL 模式以提高并发性能
+        await conn.execute("PRAGMA journal_mode=WAL")
+        _checkpointer_instance = AsyncSqliteSaver(conn)
+        # 初始化表结构
+        await _checkpointer_instance.setup()
+        print(f"[MainAgent] AsyncSqliteSaver 初始化完成，数据库: {db_path}")
+    return _checkpointer_instance
+
+# 全局 main_agent，延迟初始化
+_main_agent_instance = None
+
+async def get_main_agent():
+    """获取或创建主智能体实例（单例模式，带持久化 checkpointer）"""
+    global _main_agent_instance
+    if _main_agent_instance is None:
+        checkpointer = await get_checkpointer()
+        _main_agent_instance = create_deep_agent(
+            model=model,
+            system_prompt=main_agent_content["system_prompt"],
+            tools=[generate_markdown, convert_md_to_pdf, read_file_content],
+            checkpointer=checkpointer,
+            subagents=[database_query_agent, network_search_agent, knowledge_base_agent],
+        )
+        print(f"[MainAgent] 主智能体初始化完成，checkpointer 已启用")
+    return _main_agent_instance
 
 # 当前文件位于 app/agent/main_agent.py，parents[1] 即 app 目录
 project_root_path = Path(__file__).parents[1].resolve()
@@ -109,11 +147,15 @@ async def run_deep_agent(task_query, session_id):
     """
 
     try:
+        # 获取已初始化的主智能体实例（带 checkpointer）
+        agent = await get_main_agent()
+        print(f"[MainAgent] 开始调用 astream，config={config}")
         # astream 会持续产出模型节点、工具节点和子智能体节点的状态片段
-        async for chunk in main_agent.astream(
+        async for chunk in agent.astream(
             {"messages": [{"role": "user", "content": task_query + path_instruction}]},
             config=config,
         ):
+            print(f"[MainAgent] 收到 chunk: {list(chunk.keys())}")
             # chunk 形如 {"model": {"messages": [...]}}，这里主要关心模型最新消息
             for node_name, state in chunk.items():
                 if not state or "messages" not in state:
@@ -143,10 +185,14 @@ async def run_deep_agent(task_query, session_id):
                             monitor.report_task_result(last_msg.content)
 
     except asyncio.CancelledError:
+        print(f"[MainAgent] 任务被取消")
         monitor.report_task_cancelled()
         raise
     except Exception as e:
         # 异步执行异常也走 monitor，保证前端能收到明确错误事件
+        print(f"[MainAgent] 执行异常: {type(e).__name__}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         monitor._emit("error", f"执行主智能发生异常信息：{str(e)}")
     finally:
         # 任务结束后恢复 ContextVar，避免后续请求复用到本次会话目录或 thread_id
