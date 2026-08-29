@@ -3,10 +3,6 @@
   <p><em>DeepAgents 多智能体深度研究系统 · 学习复现与个人扩展仓库</em></p>
 </div>
 <div align='center'>
-![Python](https://img.shields.io/badge/Python-3.12-blue)
-![DeepAgents](https://img.shields.io/badge/DeepAgents-0.5.7-1C3C3C.svg)
-![FastAPI](https://img.shields.io/badge/FastAPI-WebSocket-009688.svg?logo=fastapi&logoColor=white)
-![React](https://img.shields.io/badge/React-Vite-61dafb.svg?logo=react&logoColor=white)
 </div>
 
 ## 📖 项目简介
