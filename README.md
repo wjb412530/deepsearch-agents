@@ -8,9 +8,7 @@
 ![FastAPI](https://img.shields.io/badge/FastAPI-WebSocket-009688.svg?logo=fastapi&logoColor=white)
 ![React](https://img.shields.io/badge/React-Vite-61dafb.svg?logo=react&logoColor=white)
 </div>
-> **仓库定位说明**
-> 本仓库基于开源教程项目 [didilili/deepsearch-agents](https://github.com/didilili/deepsearch-agents)（[ai-agents-from-zero 教程](https://didilili.github.io/ai-agents-from-zero/)配套实战代码）复现搭建，感谢原作者 [didilili](https://github.com/didilili) 的系统化教程。
-> 我在此基础上进行本地部署、代码研读与个人扩展开发（见下方[改进路线图](#-改进路线图面向-agent-工程落地)与[个人扩展规划](#-个人扩展规划)章节）。基础框架代码版权归原项目所有。
+
 ## 📖 项目简介
 「深度研搜」是一个对话式多智能体研究系统：输入一个研究任务，主智能体负责任务规划与调度，三个专家子智能体分别检索不同信息源，最终汇总生成 Markdown / PDF 交付物，全过程通过 WebSocket 实时推送到前端。
 一个典型任务的样子：
