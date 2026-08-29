@@ -1,22 +1,24 @@
 <div align='center'>
   <h1 style="margin-top: 15px;">deepsearch-agents</h1>
   <p><em>DeepAgents 多智能体深度研究系统 · 学习复现与个人扩展仓库</em></p>
-
+</div>
+<div align='center'>
+![Python](https://img.shields.io/badge/Python-3.12-blue)
+![DeepAgents](https://img.shields.io/badge/DeepAgents-0.5.7-1C3C3C.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-WebSocket-009688.svg?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-Vite-61dafb.svg?logo=react&logoColor=white)
+</div>
 > **仓库定位说明**
 > 本仓库基于开源教程项目 [didilili/deepsearch-agents](https://github.com/didilili/deepsearch-agents)（[ai-agents-from-zero 教程](https://didilili.github.io/ai-agents-from-zero/)配套实战代码）复现搭建，感谢原作者 [didilili](https://github.com/didilili) 的系统化教程。
 > 我在此基础上进行本地部署、代码研读与个人扩展开发（见下方[改进路线图](#-改进路线图面向-agent-工程落地)与[个人扩展规划](#-个人扩展规划)章节）。基础框架代码版权归原项目所有。
 
 ## 📖 项目简介
-
 「深度研搜」是一个对话式多智能体研究系统：输入一个研究任务，主智能体负责任务规划与调度，三个专家子智能体分别检索不同信息源，最终汇总生成 Markdown / PDF 交付物，全过程通过 WebSocket 实时推送到前端。
 一个典型任务的样子：
-
 ```text
 结合公开资料、数据库信息和我上传的文档，整理一份机器人行业研究报告，并生成 PDF。
 ```
-
 系统背后的执行链路：
-
 ```text
 用户任务
   -> FastAPI 接收请求，创建会话目录
@@ -29,38 +31,33 @@
 ```
 
 ## 🏗️ 系统架构
-
 ![系统架构图](docs/images/deepsearch-system-architecture.svg)
 采用 DeepAgents 的 Orchestrator-Workers 模式：
-
-| 归属           | 能力                                   | 工具                                                         |
-| -------------- | -------------------------------------- | ------------------------------------------------------------ |
-| 主智能体       | 任务规划、助手调度、结果汇总、文件交付 | `read_file_content` / `generate_markdown` / `convert_md_to_pdf` |
-| 网络搜索助手   | 查询互联网公开信息                     | `internet_search`（Tavily）                                  |
-| 数据库查询助手 | 发现表结构、执行 SQL                   | `list_sql_tables` / `get_table_data` / `execute_sql_query`   |
-| RAGFlow 助手   | 私有知识库问答                         | `get_assistant_list` / `create_ask_delete`                   |
+| 归属 | 能力 | 工具 |
+| --- | --- | --- |
+| 主智能体 | 任务规划、助手调度、结果汇总、文件交付 | `read_file_content` / `generate_markdown` / `convert_md_to_pdf` |
+| 网络搜索助手 | 查询互联网公开信息 | `internet_search`（Tavily） |
+| 数据库查询助手 | 发现表结构、执行 SQL | `list_sql_tables` / `get_table_data` / `execute_sql_query` |
+| RAGFlow 助手 | 私有知识库问答 | `get_assistant_list` / `create_ask_delete` |
 
 关键工程设计（也是我重点研读的部分）：
-
 - **会话级上下文隔离**：`ContextVar` 携带 `thread_id` 与 `session_dir`，深层工具无需显式传参即可获取会话身份，各会话文件互不干扰
 - **事件驱动的前后端联动**：工具调用、子智能体调用、任务结果、取消与异常均通过 `monitor` 以 WebSocket 事件推送前端
 - **子智能体各持工具、上下文隔离**：主智能体不直接持有检索类工具，通过任务描述驱动子智能体，控制上下文规模
-  ![前端任务执行页](docs/images/deepsearch-network-search-result.jpg)
+![前端任务执行页](docs/images/deepsearch-network-search-result.jpg)
 
 ## 🛠️ 技术栈
-
-| 模块       | 技术                                     |
-| ---------- | ---------------------------------------- |
+| 模块 | 技术 |
+| --- | --- |
 | 智能体框架 | DeepAgents 0.5.7 / LangGraph / LangChain |
-| 大模型接入 | OpenAI 兼容接口（通义千问 qwen-max）     |
-| 检索与数据 | Tavily / MySQL / RAGFlow（ragflow-sdk）  |
-| 文件处理   | pypdf / python-docx / pandas / ReportLab |
-| 后端       | FastAPI + Uvicorn + WebSocket            |
-| 前端       | React + Vite + TypeScript + Ant Design   |
-| 工程化     | uv / pnpm / pre-commit / Docker Compose  |
+| 大模型接入 | OpenAI 兼容接口（通义千问 qwen-max） |
+| 检索与数据 | Tavily / MySQL / RAGFlow（ragflow-sdk） |
+| 文件处理 | pypdf / python-docx / pandas / ReportLab |
+| 后端 | FastAPI + Uvicorn + WebSocket |
+| 前端 | React + Vite + TypeScript + Ant Design |
+| 工程化 | uv / pnpm / pre-commit / Docker Compose |
 
 ## 📁 项目结构
-
 ```text
 deepsearch-agents/
 ├── app/
@@ -86,16 +83,13 @@ deepsearch-agents/
 ```
 
 ## 🚀 快速开始
-
 ### 环境要求
-
 - Python 3.12（不支持 3.13）+ [uv](https://docs.astral.sh/uv/)
 - Node.js + pnpm
 - Docker（MySQL 教学库）
 - 大模型 API Key（OpenAI 兼容）、Tavily API Key；RAGFlow 为可选依赖
 
 ### 后端
-
 ```bash
 git clone https://github.com/wjb412530/deepsearch-agents.git
 cd deepsearch-agents
@@ -104,26 +98,22 @@ cp .env.example .env             # 配置模型/搜索/数据库密钥
 docker compose -f docker/docker-compose.yaml up -d   # 启动 MySQL 教学库
 uv run uvicorn app.api.server:app --host 0.0.0.0 --port 8000 --reload
 ```
-
 后端接口：
-
-| 接口                                   | 说明                         |
-| -------------------------------------- | ---------------------------- |
-| `POST /api/task`                       | 启动一次 DeepAgents 后台任务 |
-| `POST /api/task/{thread_id}/cancel`    | 取消指定会话任务             |
-| `POST /api/upload`                     | 上传文件到当前会话           |
-| `GET /api/files` / `GET /api/download` | 列出 / 下载生成文件          |
-| `WebSocket /ws/{thread_id}`            | 实时推送执行事件             |
+| 接口 | 说明 |
+| --- | --- |
+| `POST /api/task` | 启动一次 DeepAgents 后台任务 |
+| `POST /api/task/{thread_id}/cancel` | 取消指定会话任务 |
+| `POST /api/upload` | 上传文件到当前会话 |
+| `GET /api/files` / `GET /api/download` | 列出 / 下载生成文件 |
+| `WebSocket /ws/{thread_id}` | 实时推送执行事件 |
 
 ### 前端
-
 ```bash
 cd frontend
 pnpm install && pnpm dev
 ```
 
 ### 试几个任务
-
 ```text
 从数据库中查询心血管药品的库存情况，并生成 Markdown 报告。
 搜索 2026 年 AI 在电商行业的应用趋势，并结合知识库资料生成一份 PDF。
@@ -136,7 +126,6 @@ pnpm install && pnpm dev
 > **每步都带降级开关与回滚，任何改动失败均可安全退回，保证项目始终可运行**。
 
 ### 阶段 0｜Git 协作规范 + CI 骨架
-
 - **改什么**：新增 `CONTRIBUTING.md`、main 分支保护；`ci.yml` 先做冒烟（`import app.api.server` + 前端构建）；把以下 8 项改进各建一个 issue 认领。
 - **为什么**：先立规矩 —— 所有后续改动在"可复现、可回滚、PR 隔离"的土壤上进行，这是双人协作与逐步验证的工程叙事前提。
 - **前置配置**：无新依赖；GitHub 分支保护权限。
@@ -146,7 +135,6 @@ pnpm install && pnpm dev
 - **工程能力**：协作工程化、交付可复现性。
 
 ### 阶段 1｜检索结果缓存（Redis · 最快见效）
-
 - **改什么**：新增 `app/utils/cache.py`；对 Tavily 检索与 RAGFlow 助手列表做 Redis TTL 缓存；连接失败静默降级。
 - **为什么**：多智能体多次规划会重复检索同一关键词，既烧 token 又慢；缓存显著降耗时与成本。
 - **前置配置**：新增依赖 `redis`；`REDIS_ENABLED`（默认false）`REDIS_URL`、`SEARCH_CACHE_TTL`。
@@ -157,7 +145,6 @@ pnpm install && pnpm dev
 - **工程能力**：RAG 全链路性能优化、缓存一致性、成本收益权衡。
 
 ### 阶段 2｜Agent 安全与防护（护栏先上）
-
 - **改什么**：新增 `app/utils/safety.py`；`execute_sql_query` 仅放行 `SELECT/SHOW`；`get_table_data` 表名白名单；结果行数与查询超时上限；上传大小/类型限制；对 Tavily 正文与上传文档做提示注入检测；前端渲染转义复查。
 - **为什么**：源码 `execute_sql_query` 可执行**任意 SQL**、表名直接拼接，是典型 SQL 注入/RCE 面；多来源检索下的网页/文档还可能构成提示注入。
 - **前置配置**：`ALLOWED_SQL_TABLES`、`SQL_QUERY_TIMEOUT`、`SQL_MAX_ROWS`、`MAX_UPLOAD_MB`。
@@ -168,7 +155,6 @@ pnpm install && pnpm dev
 - **工程能力**：Agent 安全工程，识别并封堵工具级副作用漏洞 —— Demo 走向生产的关键差异点。
 
 ### 阶段 3｜可观测性打点（trace · 最大简化点）
-
 - **改什么**：配置 LangSmith 环境变量自动 trace；在 `monitor` 的 `report_tool`/`report_assistant` 补耗时字段；可选 `scripts/trace_query.py` 按 `thread_id` 检索链路。
 - **为什么**：没有 trace，长任务卡在哪一步只能靠猜；这是评测体系的**观测基础**，也为后续改执行链定位问题。
 - **前置配置**：新增依赖 `langsmith`；`LANGSMITH_API_KEY`、`LANGSMITH_TRACING`。
@@ -179,7 +165,6 @@ pnpm install && pnpm dev
 - **工程能力**：可观测性、长任务瓶颈定位。
 
 ### 阶段 4｜会话持久化与断点恢复
-
 - **改什么**：用持久化 checkpoint 替换内存态 `InMemorySaver`；新增 WebSocket 事件落库与历史回放接口。
 - **为什么**：内存态重启即丢，长任务中断无法续跑；持久化后既是"记忆"，又能支撑审计与回放调优。
 - **前置配置**：`langgraph-checkpoint-sqlite`（SQLite 零服务）；`CHECKPOINT_DB_PATH`。
@@ -190,7 +175,6 @@ pnpm install && pnpm dev
 - **工程能力**：Agent 状态管理与长期记忆 —— 区分短期上下文与持久记忆。
 
 ### 阶段 5｜任务队列与并发治理（Celery + RabbitMQ）
-
 - **改什么**：分两阶段 —— 先给 `asyncio.create_task` 加并发信号量限流，再切到 Celery + RabbitMQ 任务队列；新增任务状态接口。
 - **为什么**：当前长任务在进程内后台执行，进程重启即丢、多实例无法协作、并发不可控；队列化才能横向扩容、灰度与限流。
 - **前置配置**：新增依赖 `celery`、`redis`；RabbitMQ 服务；`RABBITMQ_URL`、`CELERY_ENABLED`（默认false）、`CELERY_CONCURRENCY`、`CELERY_TASK_TIMEOUT`。
@@ -201,7 +185,6 @@ pnpm install && pnpm dev
 - **工程能力**：异步与分布式调度、可靠性治理 —— 把"跑起来的 Agent"变成"可运维的 Agent 服务"。
 
 ### 阶段 6｜工具层 MCP 化
-
 - **改什么**：将 9 类工具封装为标准 MCP Server（FastMCP），以 stdio/SSE 暴露；`MCP_ENABLED` 双模式加载。
 - **为什么**：MCP 让"工具"成为与智能体框架解耦的独立资产，一份工具可被多客户端/多框架复用，并能统一鉴权与权限治理。
 - **前置配置**：新增依赖 `fastmcp`；`MCP_ENABLED`、`MCP_AUTH_TOKEN`。
@@ -212,7 +195,6 @@ pnpm install && pnpm dev
 - **工程能力**：MCP/Skill 工具生态标准化 —— 工具即服务（TaaS）。
 
 ### 阶段 7｜评测体系 + CI 门禁（量化收敛）
-
 - **改什么**：新增 `evals/questions.yaml`、`run_evals.py`、`metrics.py`；输出任务完成率/工具成功率/端到端耗时/token 成本报告并与 baseline 对比；CI 按 PR 出报告，`EVAL_GATE` 可拦截。
 - **为什么**：多智能体系统正确性无法靠几个用例断言，必须"可度量、可回归、可定位"；同时把"改进了多少"变成可写进简历的量化数字。
 - **前置配置**：新增依赖 `pytest`；`EVAL_GATE`（默认 false）；**需可用 LLM Key 并接受 token 消耗**（本项目已就绪）。
@@ -223,7 +205,6 @@ pnpm install && pnpm dev
 - **工程能力**：效果度量与迭代闭环 ——「不裸答、不裸跑」，改一处必须能量化影响。
 
 ### 阶段 8｜一键部署完善 + 交接
-
 - **改什么**：Docker Compose 补齐 redis、rabbitmq、worker 服务；前端容器化并接入同一 compose；README/`.env.example` 汇总全部新增配置。
 - **为什么**：解决"能跑"与"好部署"的落差，让外部 Reviewer 与面试官能无痛复现。
 - **前置配置**：无额外依赖；`.env.example` 需补全部新增开关变量说明。
@@ -233,9 +214,7 @@ pnpm install && pnpm dev
 - **工程能力**：工程化交付与质量保障 —— 环境一致性、自动化回归、可复现。
 
 ## 🔨 个人扩展规划
-
 以下扩展为按上述 8 个阶段逐步在本仓库实现的（**完成一项打勾一项并附实现说明**）：
-
 - [ ] **阶段0 Git协作 + CI骨架**：CONTRIBUTING.md、分支保护、CI 冒烟
 - [ ] **阶段1 检索缓存**：Redis 加速 Tavily/RAGFlow 列检索，降耗提速
 - [ ] **阶段2 安全防护**：SQL 只读校验、表白名单、上传限制、注入检测
@@ -247,16 +226,12 @@ pnpm install && pnpm dev
 - [ ] **阶段8 一键部署**：Compose 拉起全套依赖，无痛复现
 
 ## 📝 学习笔记
-
 （记录跟读教程过程中的个人理解与踩坑，按章节追加）
-
 - [DeepAgents 基础与流式解析 →]()
 
 ## 🙏 致谢
-
 - 原项目：[didilili/deepsearch-agents](https://github.com/didilili/deepsearch-agents)
 - 配套教程：[ai-agents-from-zero · 实战项目-深度研搜](https://didilili.github.io/ai-agents-from-zero/#/%E5%AE%9E%E6%88%98%E9%A1%B9%E7%9B%AE-%E6%B7%B1%E5%BA%A6%E7%A0%94%E6%90%9C/0-%E5%89%8D%E8%A8%80)
 
 ## License
-
 MIT（沿用原项目协议）
