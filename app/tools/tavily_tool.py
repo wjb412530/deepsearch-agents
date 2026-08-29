@@ -19,7 +19,8 @@ load_dotenv()
 
 
 # TavilyClient 是实际访问搜索服务的客户端；模块级复用可避免每次工具调用重复初始化
-tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY"))
+# CI 环境下可能没有 API key，使用默认值避免导入失败
+tavily_client = TavilyClient(api_key=os.getenv("TAVILY_API_KEY", "dummy-key-for-ci"))
 
 
 # @tool 会把函数签名和 docstring 暴露给 DeepAgents，模型据此决定是否调用以及如何填参
