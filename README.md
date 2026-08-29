@@ -2,14 +2,28 @@
   <h1 style="margin-top: 15px;">deepsearch-agents</h1>
   <p><em>DeepAgents 多智能体深度研究系统 · 学习复现与个人扩展仓库</em></p>
 </div>
+<div align='center'>
+![Python](https://img.shields.io/badge/Python-3.12-blue)
+![DeepAgents](https://img.shields.io/badge/DeepAgents-0.5.7-1C3C3C.svg)
+![FastAPI](https://img.shields.io/badge/FastAPI-WebSocket-009688.svg?logo=fastapi&logoColor=white)
+![React](https://img.shields.io/badge/React-Vite-61dafb.svg?logo=react&logoColor=white)
+</div>
+
+> **仓库定位说明**
+> 本仓库基于开源教程项目 [didilili/deepsearch-agents](https://github.com/didilili/deepsearch-agents)（[ai-agents-from-zero 教程](https://didilili.github.io/ai-agents-from-zero/)配套实战代码）复现搭建，感谢原作者 [didilili](https://github.com/didilili) 的系统化教程。
+> 我在此基础上进行本地部署、代码研读与个人扩展开发（见下方[改进路线图](#-改进路线图面向-agent-工程落地)与[个人扩展规划](#-个人扩展规划)章节）。基础框架代码版权归原项目所有。
 
 ## 📖 项目简介
+
 「深度研搜」是一个对话式多智能体研究系统：输入一个研究任务，主智能体负责任务规划与调度，三个专家子智能体分别检索不同信息源，最终汇总生成 Markdown / PDF 交付物，全过程通过 WebSocket 实时推送到前端。
 一个典型任务的样子：
+
 ```text
 结合公开资料、数据库信息和我上传的文档，整理一份机器人行业研究报告，并生成 PDF。
 ```
+
 系统背后的执行链路：
+
 ```text
 用户任务
   -> FastAPI 接收请求，创建会话目录
@@ -22,33 +36,38 @@
 ```
 
 ## 🏗️ 系统架构
+
 ![系统架构图](docs/images/deepsearch-system-architecture.svg)
 采用 DeepAgents 的 Orchestrator-Workers 模式：
-| 归属 | 能力 | 工具 |
-| --- | --- | --- |
-| 主智能体 | 任务规划、助手调度、结果汇总、文件交付 | `read_file_content` / `generate_markdown` / `convert_md_to_pdf` |
-| 网络搜索助手 | 查询互联网公开信息 | `internet_search`（Tavily） |
-| 数据库查询助手 | 发现表结构、执行 SQL | `list_sql_tables` / `get_table_data` / `execute_sql_query` |
-| RAGFlow 助手 | 私有知识库问答 | `get_assistant_list` / `create_ask_delete` |
+
+| 归属           | 能力                                   | 工具                                                         |
+| -------------- | -------------------------------------- | ------------------------------------------------------------ |
+| 主智能体       | 任务规划、助手调度、结果汇总、文件交付 | `read_file_content` / `generate_markdown` / `convert_md_to_pdf` |
+| 网络搜索助手   | 查询互联网公开信息                     | `internet_search`（Tavily）                                  |
+| 数据库查询助手 | 发现表结构、执行 SQL                   | `list_sql_tables` / `get_table_data` / `execute_sql_query`   |
+| RAGFlow 助手   | 私有知识库问答                         | `get_assistant_list` / `create_ask_delete`                   |
 
 关键工程设计（也是我重点研读的部分）：
+
 - **会话级上下文隔离**：`ContextVar` 携带 `thread_id` 与 `session_dir`，深层工具无需显式传参即可获取会话身份，各会话文件互不干扰
 - **事件驱动的前后端联动**：工具调用、子智能体调用、任务结果、取消与异常均通过 `monitor` 以 WebSocket 事件推送前端
 - **子智能体各持工具、上下文隔离**：主智能体不直接持有检索类工具，通过任务描述驱动子智能体，控制上下文规模
-![前端任务执行页](docs/images/deepsearch-network-search-result.jpg)
+  ![前端任务执行页](docs/images/deepsearch-network-search-result.jpg)
 
 ## 🛠️ 技术栈
-| 模块 | 技术 |
-| --- | --- |
+
+| 模块       | 技术                                     |
+| ---------- | ---------------------------------------- |
 | 智能体框架 | DeepAgents 0.5.7 / LangGraph / LangChain |
-| 大模型接入 | OpenAI 兼容接口（通义千问 qwen-max） |
-| 检索与数据 | Tavily / MySQL / RAGFlow（ragflow-sdk） |
-| 文件处理 | pypdf / python-docx / pandas / ReportLab |
-| 后端 | FastAPI + Uvicorn + WebSocket |
-| 前端 | React + Vite + TypeScript + Ant Design |
-| 工程化 | uv / pnpm / pre-commit / Docker Compose |
+| 大模型接入 | OpenAI 兼容接口（通义千问 qwen-max）     |
+| 检索与数据 | Tavily / MySQL / RAGFlow（ragflow-sdk）  |
+| 文件处理   | pypdf / python-docx / pandas / ReportLab |
+| 后端       | FastAPI + Uvicorn + WebSocket            |
+| 前端       | React + Vite + TypeScript + Ant Design   |
+| 工程化     | uv / pnpm / pre-commit / Docker Compose  |
 
 ## 📁 项目结构
+
 ```text
 deepsearch-agents/
 ├── app/
@@ -74,13 +93,16 @@ deepsearch-agents/
 ```
 
 ## 🚀 快速开始
+
 ### 环境要求
+
 - Python 3.12（不支持 3.13）+ [uv](https://docs.astral.sh/uv/)
 - Node.js + pnpm
 - Docker（MySQL 教学库）
 - 大模型 API Key（OpenAI 兼容）、Tavily API Key；RAGFlow 为可选依赖
 
 ### 后端
+
 ```bash
 git clone https://github.com/wjb412530/deepsearch-agents.git
 cd deepsearch-agents
@@ -89,79 +111,159 @@ cp .env.example .env             # 配置模型/搜索/数据库密钥
 docker compose -f docker/docker-compose.yaml up -d   # 启动 MySQL 教学库
 uv run uvicorn app.api.server:app --host 0.0.0.0 --port 8000 --reload
 ```
+
 后端接口：
-| 接口 | 说明 |
-| --- | --- |
-| `POST /api/task` | 启动一次 DeepAgents 后台任务 |
-| `POST /api/task/{thread_id}/cancel` | 取消指定会话任务 |
-| `POST /api/upload` | 上传文件到当前会话 |
-| `GET /api/files` / `GET /api/download` | 列出 / 下载生成文件 |
-| `WebSocket /ws/{thread_id}` | 实时推送执行事件 |
+
+| 接口                                   | 说明                         |
+| -------------------------------------- | ---------------------------- |
+| `POST /api/task`                       | 启动一次 DeepAgents 后台任务 |
+| `POST /api/task/{thread_id}/cancel`    | 取消指定会话任务             |
+| `POST /api/upload`                     | 上传文件到当前会话           |
+| `GET /api/files` / `GET /api/download` | 列出 / 下载生成文件          |
+| `WebSocket /ws/{thread_id}`            | 实时推送执行事件             |
 
 ### 前端
+
 ```bash
 cd frontend
 pnpm install && pnpm dev
 ```
 
 ### 试几个任务
+
 ```text
 从数据库中查询心血管药品的库存情况，并生成 Markdown 报告。
 搜索 2026 年 AI 在电商行业的应用趋势，并结合知识库资料生成一份 PDF。
 请先读取我上传的行业报告，再结合公开资料整理一份研究摘要。
 ```
 
-## 🔬 改进路线图（面向 Agent 工程落地）
+## 🔬 改进路线图（面向 Agent 工程落地 · 含单人落地方案）
 
-> 原项目定位为教学骨架，刻意不覆盖生产治理与效果度量能力。以下改进项均基于对源码的研读与原作者「能力边界」说明整理，是我在本仓库上亲手实现的扩展方向。每一项都写清 **改什么 / 为什么改 / 体现的 Agent 工程能力**，作为 Agent 应用开发工程实践的证据。
+> 原项目定位为教学骨架，刻意不覆盖生产治理与效果度量能力。以下改进项均基于对源码的研读与原作者「能力边界」说明整理，是我在本仓库上亲手实现的扩展方向。每一项都写清 **改什么 / 为什么改 / 前置配置 / 落地要点 / 验证方式 / 回滚开关 / 依据来源**，并按**可落地的实施顺序**排列（基础设施 → 低风险快收益 → 护栏 → 观测 → 运行时重构 → 架构重构 → 度量收敛 → 部署收口）。
+> **每步都带降级开关与回滚，任何改动失败均可安全退回，保证项目始终可运行**。
 
-### 1. 可观测性与评测体系（highest priority）
-- **改什么**：新增 `evals/` 目录与测试问题集；接入 LangSmith / Langfuse trace，逐节点记录工具调用、token 消耗与端到端耗时；用脚本自动度量任务完成率、工具调用成功率、端到端耗时。
-- **为什么**：多智能体系统的正确性无法靠几个用例断言，必须「可度量、可回归、可定位」。没有 trace，长任务卡在哪一步只能靠猜；没有评测集，任何提示词或工具改动都无法判断是变好还是变坏。
-- **工程能力**：效果度量与迭代闭环 —— Agent 工程师的核心思维是「不裸答、不裸跑」，改一处必须能量化影响。
+### 阶段 0｜Git 协作规范 + CI 骨架
 
-### 2. 工具层 MCP 化
-- **改什么**：将 9 类工具重构为标准 MCP Server（FastMCP），以 stdio / SSE 暴露；主智能体通过 MCP 客户端按需加载工具。
-- **为什么**：MCP 使「工具」成为与智能体框架解耦的独立资产，一份工具可供多个客户端/多框架复用，并能统一做鉴权与权限治理；也让工具打通 Operator / 其他 Agent 生态。
-- **工程能力**：MCP / Skill 工具生态设计与标准化 —— 工具即服务（TaaS），贴近真实生产 Agent 平台的工具接入方式。
+- **改什么**：新增 `CONTRIBUTING.md`、main 分支保护；`ci.yml` 先做冒烟（`import app.api.server` + 前端构建）；把以下 8 项改进各建一个 issue 认领。
+- **为什么**：先立规矩 —— 所有后续改动在"可复现、可回滚、PR 隔离"的土壤上进行，这是双人协作与逐步验证的工程叙事前提。
+- **前置配置**：无新依赖；GitHub 分支保护权限。
+- **落地要点**：仓库当前无 `tests/`，CI 首次不能用 `pytest`（无测试会失败），先冒烟。
+- **回滚开关**：低风险，删增量文件即可。
+- **依据来源**：根目录现状（无 `.github/`、无 `CONTRIBUTING.md`，已核实）。
+- **工程能力**：协作工程化、交付可复现性。
 
-### 3. 任务队列与并发治理
-- **改什么**：将 FastAPI `BackgroundTask` 直接起任务的实现，改为基于 Celery + RabbitMQ（或 Redis Streams）的任务队列；增加并发上限、超时与重试策略。
-- **为什么**：当前长任务在进程内后台执行，进程重启即丢失、多实例无法协作，也不可控并发。队列化后才能横向扩容、灰度与限流。
-- **工程能力**：异步与分布式调度、可靠性治理 —— 把「跑起来的 Agent」变成「可运维的 Agent 服务」。
+### 阶段 1｜检索结果缓存（Redis · 最快见效）
 
-### 4. 会话持久化与断点恢复
-- **改什么**：用 SQLite / PostgreSQL 事件存储 + LangGraph checkpointer 替换内存态 `InMemorySaver`；WebSocket 事件写库，支持历史会话回放与中断后恢复执行。
-- **为什么**：内存态在重启后全部丢失，长任务中断无法续跑；持久化后既是「记忆」，又能支撑审计与回放调优。
-- **工程能力**：Agent 状态管理与长期记忆 —— 区分短期上下文与持久记忆的落地能力。
+- **改什么**：新增 `app/utils/cache.py`；对 Tavily 检索与 RAGFlow 助手列表做 Redis TTL 缓存；连接失败静默降级。
+- **为什么**：多智能体多次规划会重复检索同一关键词，既烧 token 又慢；缓存显著降耗时与成本。
+- **前置配置**：新增依赖 `redis`；`REDIS_ENABLED`（默认false）`REDIS_URL`、`SEARCH_CACHE_TTL`。
+- **落地要点**：RAGFlow `create_ask_delete` 每次会**创建又删除临时会话**（有副作用），暂只缓存只读的 `get_assistant_list`，问答级缓存留到评测后再定。
+- **验证**：同查询两次耗时下降 + `cache_hit`；关 Redis 任务仍成功（降级生效）。
+- **回滚开关**：`REDIS_ENABLED=false` 即回到原逻辑。
+- **依据来源**：`app/tools/tavily_tool.py`、`app/tools/ragflow_tools.py`。
+- **工程能力**：RAG 全链路性能优化、缓存一致性、成本收益权衡。
 
-### 5. Agent 安全与防护
-- **改什么**：给 `execute_sql_query` 增加只读校验与 SQL 白名单/查询耗时上限；对工具输出与用户上传文件做内容注入检测；前端渲染转义。
-- **为什么**：Agent 把大模型输出「直接当代码执行/拼 SQL」是典型 RCE 与 SQL 注入面；多来源检索环境下，被注入的网页/文档还可能构成提示注入。
-- **工程能力**：Agent 安全工程 —— 识别并封堵工具级副作用漏洞，是大模型应用由 Demo 走向生产的关键差异点。
+### 阶段 2｜Agent 安全与防护（护栏先上）
 
-### 6. 检索结果缓存
-- **改什么**：接入 Redis，对高频/重复的 Tavily 检索结果与 RAGFlow 问答做 TTL 缓存。
-- **为什么**：多智能体多次规划会重复检索同一关键词，既烧 token 又慢；缓存可显著降低端到端耗时与成本。
-- **工程能力**：RAG 全链路性能优化 —— 命中率、缓存一致性、成本收益权衡。
+- **改什么**：新增 `app/utils/safety.py`；`execute_sql_query` 仅放行 `SELECT/SHOW`；`get_table_data` 表名白名单；结果行数与查询超时上限；上传大小/类型限制；对 Tavily 正文与上传文档做提示注入检测；前端渲染转义复查。
+- **为什么**：源码 `execute_sql_query` 可执行**任意 SQL**、表名直接拼接，是典型 SQL 注入/RCE 面；多来源检索下的网页/文档还可能构成提示注入。
+- **前置配置**：`ALLOWED_SQL_TABLES`、`SQL_QUERY_TIMEOUT`、`SQL_MAX_ROWS`、`MAX_UPLOAD_MB`。
+- **落地要点**：表名白名单可空（未配置则不启用表级限制，避免误伤合法查询）；**SELECT/SHOW 限制是始终生效的最低安全基线**。
+- **验证**：`DROP TABLE`、注入样例、超长文档被拦；正常 SELECT 回归通过（重点回归，勿误伤）。
+- **回滚开关**：白名单置空。
+- **依据来源**：`app/tools/db_tools.py`（任意 SQL + `autocommit=True`，源码注释自标"生产应限制"）。
+- **工程能力**：Agent 安全工程，识别并封堵工具级副作用漏洞 —— Demo 走向生产的关键差异点。
 
-### 7. 一键部署与 CI
-- **改什么**：补全 Docker Compose 一键拉起前端 + 后端 + MySQL + 可选 Redis；GitHub Actions 在 PR 时跑 `evals/` 作为质量门禁。
-- **为什么**：解决「能跑」与「好部署」的落差，让外部 Reviewer 与面试官能无痛复现；评测进 CI 保证扩展不回归。
+### 阶段 3｜可观测性打点（trace · 最大简化点）
+
+- **改什么**：配置 LangSmith 环境变量自动 trace；在 `monitor` 的 `report_tool`/`report_assistant` 补耗时字段；可选 `scripts/trace_query.py` 按 `thread_id` 检索链路。
+- **为什么**：没有 trace，长任务卡在哪一步只能靠猜；这是评测体系的**观测基础**，也为后续改执行链定位问题。
+- **前置配置**：新增依赖 `langsmith`；`LANGSMITH_API_KEY`、`LANGSMITH_TRACING`。
+- **落地要点**：LangChain/LangGraph 原生支持 LangSmith，**配环境变量即可拿到完整 trace**，几乎不改代码。
+- **验证**：trace 面板可见主→子→工具的完整链路与各环节耗时。
+- **回滚开关**：`LANGSMITH_TRACING` 置空即关闭。
+- **依据来源**：`app/agent/llm.py`、`app/api/monitor.py`（`ToolMonitor` 单例 + 统一事件 `timestamp/data.tool_name`）。
+- **工程能力**：可观测性、长任务瓶颈定位。
+
+### 阶段 4｜会话持久化与断点恢复
+
+- **改什么**：用持久化 checkpoint 替换内存态 `InMemorySaver`；新增 WebSocket 事件落库与历史回放接口。
+- **为什么**：内存态重启即丢，长任务中断无法续跑；持久化后既是"记忆"，又能支撑审计与回放调优。
+- **前置配置**：`langgraph-checkpoint-sqlite`（SQLite 零服务）；`CHECKPOINT_DB_PATH`。
+- **落地要点**：**必须先实测 `deepagents==0.5.7` 与 sqlite saver 的兼容性**，不兼容则保留 `InMemorySaver`、仅做 WebSocket 事件持久化（`app/storage/event_store.py`）。
+- **验证**：任务跑一半重启服务，同 `thread_id` 可断点续跑；历史事件可回放。
+- **回滚开关**：切回 `InMemorySaver`。
+- **依据来源**：`app/agent/main_agent.py`（`InMemorySaver`、`config={"configurable":{"thread_id":session_id}}`）。
+- **工程能力**：Agent 状态管理与长期记忆 —— 区分短期上下文与持久记忆。
+
+### 阶段 5｜任务队列与并发治理（Celery + RabbitMQ）
+
+- **改什么**：分两阶段 —— 先给 `asyncio.create_task` 加并发信号量限流，再切到 Celery + RabbitMQ 任务队列；新增任务状态接口。
+- **为什么**：当前长任务在进程内后台执行，进程重启即丢、多实例无法协作、并发不可控；队列化才能横向扩容、灰度与限流。
+- **前置配置**：新增依赖 `celery`、`redis`；RabbitMQ 服务；`RABBITMQ_URL`、`CELERY_ENABLED`（默认false）、`CELERY_CONCURRENCY`、`CELERY_TASK_TIMEOUT`。
+- **落地要点**：**must 两阶段**（先限流再切队列）；`run_deep_agent` 是 async，需用 `asyncio.run` 正确包裹；`CELERY_ENABLED=true` 时提交任务并返回 `task_id`，否则保持原路径（双模式并存）。
+- **验证**：并发提交按并发上限排队；kill 一个 worker 任务可重试不丢。
+- **回滚开关**：`CELERY_ENABLED=false` 即回 asyncio 原路径。
+- **依据来源**：`app/api/server.py`（`asyncio.create_task(run_deep_agent(...))` + `active_tasks` 字典）。
+- **工程能力**：异步与分布式调度、可靠性治理 —— 把"跑起来的 Agent"变成"可运维的 Agent 服务"。
+
+### 阶段 6｜工具层 MCP 化
+
+- **改什么**：将 9 类工具封装为标准 MCP Server（FastMCP），以 stdio/SSE 暴露；`MCP_ENABLED` 双模式加载。
+- **为什么**：MCP 让"工具"成为与智能体框架解耦的独立资产，一份工具可被多客户端/多框架复用，并能统一鉴权与权限治理。
+- **前置配置**：新增依赖 `fastmcp`；`MCP_ENABLED`、`MCP_AUTH_TOKEN`。
+- **落地要点**：渐进迁移 —— 先迁移只读工具（Tavily/RAGFlow 列表/文件读），验证通过后再迁移 SQL 与写操作。
+- **验证**：3 类任务在 MCP 模式全回归通过；未带 token 被拒。
+- **回滚开关**：`MCP_ENABLED=false` 整体回直接 import。
+- **依据来源**：9 个工具分布在 `db_tools.py`(3)、`markdown_tools.py`、`pdf_tools.py`、`ragflow_tools.py`(2)、`tavily_tool.py`、`upload_file_read_tool.py`（共 6 文件 9 函数）。
+- **工程能力**：MCP/Skill 工具生态标准化 —— 工具即服务（TaaS）。
+
+### 阶段 7｜评测体系 + CI 门禁（量化收敛）
+
+- **改什么**：新增 `evals/questions.yaml`、`run_evals.py`、`metrics.py`；输出任务完成率/工具成功率/端到端耗时/token 成本报告并与 baseline 对比；CI 按 PR 出报告，`EVAL_GATE` 可拦截。
+- **为什么**：多智能体系统正确性无法靠几个用例断言，必须"可度量、可回归、可定位"；同时把"改进了多少"变成可写进简历的量化数字。
+- **前置配置**：新增依赖 `pytest`；`EVAL_GATE`（默认 false）；**需可用 LLM Key 并接受 token 消耗**（本项目已就绪）。
+- **落地要点**：评测集 5~15 条代表性问题，覆盖网络搜索/数据库/RAGFlow/多源混合；依赖前置 baseline 数据对比。
+- **验证**：跑一次输出完整报告；PR 自动触发评测。
+- **回滚开关**：`EVAL_GATE=false` 仅出报告不拦截。
+- **依据来源**：`.env` 的 LLM 配置（`OPENAI_BASE_URL`/`OPENAI_API_KEY`/`LLM_QWEN_MAX`）+ 快速开始产生的 baseline。
+- **工程能力**：效果度量与迭代闭环 ——「不裸答、不裸跑」，改一处必须能量化影响。
+
+### 阶段 8｜一键部署完善 + 交接
+
+- **改什么**：Docker Compose 补齐 redis、rabbitmq、worker 服务；前端容器化并接入同一 compose；README/`.env.example` 汇总全部新增配置。
+- **为什么**：解决"能跑"与"好部署"的落差，让外部 Reviewer 与面试官能无痛复现。
+- **前置配置**：无额外依赖；`.env.example` 需补全部新增开关变量说明。
+- **验证**：从空环境按 README 一键拉起全部服务，3 个典型任务全跑通。
+- **回滚开关**：单服务回滚，无全局风险。
+- **依据来源**：`docker/docker-compose.yaml`（当前仅 MySQL 一个服务）；`frontend/vite.config.ts`（proxy `/api→8000`、`/ws→ws:8000`）。
 - **工程能力**：工程化交付与质量保障 —— 环境一致性、自动化回归、可复现。
 
 ## 🔨 个人扩展规划
-以下扩展为计划逐步在本仓库实现的（完成的会打勾并附实现说明）：
-- [ ] **评测体系**：`evals/` 目录 + 测试问题集，自动化度量任务完成率、工具调用成功率、端到端耗时——让扩展效果可量化
-- [ ] **工具层 MCP 化**：将 9 类工具改造为标准 MCP server，验证跨端调度与统一治理
-- [ ] **事件持久化与会话恢复**：WebSocket 事件写入 SQLite，支持历史会话回放与断点恢复（替换 `InMemorySaver`）
-- [ ] **可观测性接入**：LangSmith / LangGraph trace，逐节点定位长任务瓶颈
-- [ ] **检索结果缓存**：Redis 缓存高频检索结果，降低重复任务开销
-- [ ] **一键部署**：Docker Compose 拉起前后端 + 全套依赖
+
+以下扩展为按上述 8 个阶段逐步在本仓库实现的（**完成一项打勾一项并附实现说明**）：
+
+- [ ] **阶段0 Git协作 + CI骨架**：CONTRIBUTING.md、分支保护、CI 冒烟
+- [ ] **阶段1 检索缓存**：Redis 加速 Tavily/RAGFlow 列检索，降耗提速
+- [ ] **阶段2 安全防护**：SQL 只读校验、表白名单、上传限制、注入检测
+- [ ] **阶段3 可观测性**：LangSmith trace + monitor 耗时打点
+- [ ] **阶段4 会话持久化**：替换 InMemorySaver + WebSocket 事件落库回放
+- [ ] **阶段5 任务队列**：Celery + RabbitMQ 并发治理与断点可靠性
+- [ ] **阶段6 工具 MCP 化**：9 类工具标准 MCP server，跨端治理
+- [ ] **阶段7 评测体系**：evals 自动度量 + CI 门禁，产出量化数字
+- [ ] **阶段8 一键部署**：Compose 拉起全套依赖，无痛复现
+
+## 📝 学习笔记
+
+（记录跟读教程过程中的个人理解与踩坑，按章节追加）
+
+- [DeepAgents 基础与流式解析 →]()
 
 ## 🙏 致谢
+
 - 原项目：[didilili/deepsearch-agents](https://github.com/didilili/deepsearch-agents)
 - 配套教程：[ai-agents-from-zero · 实战项目-深度研搜](https://didilili.github.io/ai-agents-from-zero/#/%E5%AE%9E%E6%88%98%E9%A1%B9%E7%9B%AE-%E6%B7%B1%E5%BA%A6%E7%A0%94%E6%90%9C/0-%E5%89%8D%E8%A8%80)
 
 ## License
+
 MIT（沿用原项目协议）
