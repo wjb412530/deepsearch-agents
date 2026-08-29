@@ -218,10 +218,6 @@ pnpm install && pnpm dev
 - [ ] **阶段7 评测体系**：evals 自动度量 + CI 门禁，产出量化数字
 - [ ] **阶段8 一键部署**：Compose 拉起全套依赖，无痛复现
 
-## 📝 学习笔记
-（记录跟读教程过程中的个人理解与踩坑，按章节追加）
-- [DeepAgents 基础与流式解析 →]()
-
 ## 🙏 致谢
 - 原项目：[didilili/deepsearch-agents](https://github.com/didilili/deepsearch-agents)
 - 配套教程：[ai-agents-from-zero · 实战项目-深度研搜](https://didilili.github.io/ai-agents-from-zero/#/%E5%AE%9E%E6%88%98%E9%A1%B9%E7%9B%AE-%E6%B7%B1%E5%BA%A6%E7%A0%94%E6%90%9C/0-%E5%89%8D%E8%A8%80)
